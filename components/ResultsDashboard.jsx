@@ -35,36 +35,36 @@ const FALLBACK_AUDIT = [
   {
     title: 'Missing llms.txt',
     severity: 'critical',
-    desc: 'AI models have no direct instruction file to extract your core facts. Deploy /llms.txt at your root domain with your protocol mechanics, team, funding, and key metrics in clean Markdown. This bypasses search index latency and feeds uncontested facts directly into LLM knowledge bases before any competitor fills that slot.',
+    desc: 'AI models have no direct instruction file to extract your core facts. Deploy /llms.txt at your root domain with your product features, team, pricing, and key metrics in clean Markdown. This bypasses search index latency and feeds uncontested facts directly into LLM knowledge bases before any competitor fills that slot.',
     code: 'GET yourproject.com/llms.txt\n→ 404 Not Found\n\nGET yourproject.com/.well-known/llms.txt\n→ 404 Not Found',
     tags: ['llms.txt', 'LLM Crawling', 'Critical Fix'],
   },
   {
-    title: 'No Organization + Protocol Schema',
+    title: 'No Organization Schema',
     severity: 'critical',
-    desc: 'Generative engines use JSON-LD as their primary navigational map. Without @type:Organization schema including founder names, founding date, funding amount, and sameAs links to CoinGecko or DeFiLlama — AI models cannot confidently anchor your entity in their knowledge graph.',
-    code: '{\n  "@context": "https://schema.org",\n  "@type": "Organization",\n  "name": "Your Project",\n  "foundingDate": "2024",\n  "sameAs": [\n    "https://defillama.com/protocol/...",\n    "https://coingecko.com/en/coins/..."\n  ]\n}',
+    desc: 'Generative engines use JSON-LD as their primary navigational map. Without @type:Organization schema including founder names, founding date, and sameAs links to LinkedIn, Crunchbase, or G2 — AI models cannot confidently anchor your entity in their knowledge graph.',
+    code: '{\n  "@context": "https://schema.org",\n  "@type": "Organization",\n  "name": "Your Project",\n  "foundingDate": "2024",\n  "sameAs": [\n    "https://linkedin.com/company/...",\n    "https://crunchbase.com/organization/..."\n  ]\n}',
     tags: ['JSON-LD', 'Schema.org', 'Knowledge Graph'],
   },
   {
     title: 'Non-Semantic Header Architecture',
     severity: 'high',
     desc: 'Current headers are optimized for human resonance, not machine extraction. AI models respond to question-based H2s that mirror natural language prompts — the exact queries users type into Perplexity and ChatGPT. Replace marketing copy with extractable, factual declarations.',
-    code: '❌  "BUILT FOR THE FUTURE"\n✅  "How does [Protocol] process transactions?"\n\n❌  "UNPRECEDENTED YIELD"\n✅  "What APY does [Protocol] offer on deposited collateral?"',
+    code: '❌  "BUILT FOR THE FUTURE"\n✅  "How does [Product] solve [specific problem]?"\n\n❌  "UNPRECEDENTED RESULTS"\n✅  "What ROI does [Product] deliver for [use case]?"',
     tags: ['Semantic HTML', 'GEO', 'Headers'],
   },
   {
     title: 'No FAQPage Schema',
     severity: 'high',
     desc: 'FAQPage schema with question-based entries directly mirrors user prompts on Perplexity and ChatGPT. Each answer must provide a clear, citable response within 70–80 words. This is the single highest-impact technique for getting content lifted verbatim into AI synthesis.',
-    code: '{\n  "@type": "FAQPage",\n  "mainEntity": [{\n    "@type": "Question",\n    "name": "How does [Protocol] work?",\n    "acceptedAnswer": {\n      "@type": "Answer",\n      "text": "..."\n    }\n  }]\n}',
+    code: '{\n  "@type": "FAQPage",\n  "mainEntity": [{\n    "@type": "Question",\n    "name": "How does [Product] work?",\n    "acceptedAnswer": {\n      "@type": "Answer",\n      "text": "..."\n    }\n  }]\n}',
     tags: ['FAQPage', 'Schema.org', 'Perplexity'],
   },
   {
     title: 'Authority Citation Gap',
     severity: 'medium',
-    desc: 'LLMs are trained on high-weight sources: The Block, Messari, Blockworks, CoinDesk, DeFi Llama blog. A single in-depth feature in any of these compounds permanently into future model training runs. Target their editorial teams with data-driven pitches focused on protocol mechanics, not PR.',
-    tags: ['The Block', 'Messari', 'Training Data'],
+    desc: 'LLMs are trained on high-weight sources: TechCrunch, Forbes, HackerNews, Product Hunt, industry blogs. A single in-depth feature in any of these compounds permanently into future model training runs. Target their editorial teams with data-driven pitches focused on product capabilities, not PR.',
+    tags: ['TechCrunch', 'Forbes', 'Training Data'],
   },
 ];
 
@@ -668,7 +668,7 @@ export default function ResultsDashboard({ results, onRetry, onReset }) {
           <ShareCard projectName={projectName} score={score} mentionStrength={mentionStrength} />
         </div>
         <p className="res-footer-powered">
-          Powered by <a href="https://astral3.io" target="_blank" rel="noopener noreferrer">Astral</a> · LLMO Intelligence for Web3
+          Powered by <a href="https://astral3.io" target="_blank" rel="noopener noreferrer">Astral</a> · AI Visibility Intelligence
         </p>
       </div>
 

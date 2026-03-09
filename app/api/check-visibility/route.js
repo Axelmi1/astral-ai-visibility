@@ -104,7 +104,7 @@ export async function POST(request) {
     }
 
     // ── STEP 1: Identify project name + category + queries ─────────────────
-    const identifyResponse = await callClaude(`Given this crypto/Web3 project:
+    const identifyResponse = await callClaude(`Given this project/business:
 URL: "${url}"
 ${siteContent ? `\nWebsite content (extracted text):\n"${siteContent}"\n` : ''}
 Based on the URL${siteContent ? ' and website content' : ''}, respond in this exact JSON format only, no other text:
@@ -125,15 +125,15 @@ Your goal is to write the PERFECT query that, if the AI knows this project, woul
 Think step by step:
 1. What SPECIFIC problem does this project solve?
 2. What would someone with THAT EXACT problem type into ChatGPT?
-3. Include specific details: the chain, the mechanism, the audience, the niche.
+3. Include specific details: the industry, the mechanism, the audience, the niche.
 
 EXAMPLES of the level of specificity expected:
-- For a perpetuals DEX on Arbitrum: "Where can I trade crypto perpetual futures on-chain without using a centralized exchange like Binance?"
-- For an LLMO agency for Web3: "How can my DeFi protocol get mentioned when people ask ChatGPT or Claude for crypto recommendations?"
-- For a yield aggregator on Ethereum: "What's the best way to automatically optimize my DeFi yield across multiple Ethereum lending protocols?"
+- For a project management tool: "What's the best project management software for remote engineering teams with Jira-like features but simpler?"
+- For an AI writing assistant: "What tools can help me write SEO-optimized blog posts using AI without sounding robotic?"
+- For a CRM for startups: "What's the best lightweight CRM for early-stage B2B SaaS startups that integrates with Slack?"
 
-BAD (too generic): "What are the best DeFi tools?" / "best crypto trading platforms"
-GOOD (hyper-targeted): "Where can I get undercollateralized crypto loans using my on-chain reputation score?"
+BAD (too generic): "What are the best SaaS tools?" / "best software platforms"
+GOOD (hyper-targeted): "What's the best tool for automating customer onboarding emails for SaaS companies?"
 
 The "category" must describe what the project ACTUALLY DOES specifically, not a broad sector.
 
@@ -151,16 +151,16 @@ Always return valid JSON, no markdown.`, 400);
       const cleanJson = identifyText.replace(/```json\n?|```/g, '').trim();
       const parsed = JSON.parse(cleanJson);
       projectName = parsed.name || 'Unknown Project';
-      category = parsed.category || 'DeFi';
+      category = parsed.category || 'Software';
       description = parsed.description || '';
       queries = Array.isArray(parsed.queries) && parsed.queries.length > 0
         ? parsed.queries
-        : [`What are the best ${category} projects or platforms in crypto right now?`];
+        : [`What are the best ${category} tools or platforms right now?`];
     } catch {
       const domain = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].split('.')[0];
       projectName = domain.charAt(0).toUpperCase() + domain.slice(1);
-      category = 'DeFi';
-      description = `A Web3 project at ${url}`;
+      category = 'Software';
+      description = `A project at ${url}`;
       queries = [`What are the best ${category} projects or platforms in crypto right now?`];
     }
 
@@ -256,7 +256,7 @@ Rules for claudeScore:
 - clearly THE recommended solution → score 70-90
 
 Rules for platform estimates (chatgpt/perplexity/gemini):
-Base on brand size: major exchange/protocol (Kraken/Coinbase/Uniswap level) → 55-75. Mid-tier known project → 30-55. New seed-stage → 8-25.
+Base on brand size: major platform (Salesforce/Notion/Stripe level) → 55-75. Mid-tier known project → 30-55. New early-stage → 8-25.
 Make the 3 platform scores DIFFERENT from each other by ±5-15 points reflecting each platform's training data.`;
 
     // ── STEP 3b: Personalized audit actions (separate call) ────────────────
@@ -264,7 +264,7 @@ Make the 3 platform scores DIFFERENT from each other by ±5-15 points reflecting
 
 Context:
 - URL: ${url}
-- Competitors ranking above them on AI queries: ${competitors.slice(0, 4).join(', ') || 'Coinbase, Binance, competitors'}
+- Competitors ranking above them on AI queries: ${competitors.slice(0, 4).join(', ') || 'top competitors in their space'}
 - Category: ${category}
 
 IMPORTANT: Use "${projectName}" by name in every description. Be specific to this exact project.

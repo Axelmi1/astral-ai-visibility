@@ -50,18 +50,18 @@ export default function LandingScreen({ fields, setFields, errors, onSubmit }) {
         {/* Eyebrow */}
         <div className="land-eyebrow anim-up d-0">
           <span className="land-eyebrow-dot" />
-          <span className="land-eyebrow-text">LLMO Intelligence for Web3</span>
+          <span className="land-eyebrow-text">AI Visibility Intelligence</span>
         </div>
 
         {/* Headline */}
         <h1 className="land-headline anim-up d-1">
-          Is Your Crypto Project<br />
+          Is Your Business<br />
           <span className="land-headline-accent">Visible to AI?</span>
         </h1>
 
         {/* Sub */}
         <p className="land-sub anim-up d-2">
-          When founders search on Grok, Perplexity, or ChatGPT — your project needs to show up.
+          When people search on ChatGPT, Perplexity, or Gemini — does your business show up?
           Check your AI visibility in 30 seconds.
         </p>
 
@@ -83,7 +83,7 @@ export default function LandingScreen({ fields, setFields, errors, onSubmit }) {
               value={url}
               onChange={setUrl}
               onKeyDown={handleKeyDown}
-              placeholder="yourproject.xyz"
+              placeholder="yourcompany.com"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="none"

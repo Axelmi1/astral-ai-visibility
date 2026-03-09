@@ -19,12 +19,12 @@ const OG_URL = 'https://visibility.astral3.io';
 const OG_IMAGE = `${OG_URL}/og-image.png`;
 
 export const metadata = {
-  title: 'AI Visibility Checker — Is Your Web3 Project Visible to AI?',
+  title: 'AI Visibility Checker — Is Your Project Visible to AI?',
   description:
     'Check if ChatGPT, Claude, Perplexity and Gemini mention your project. Get a free LLMO audit in 30 seconds.',
   metadataBase: new URL(OG_URL),
   openGraph: {
-    title: 'AI Visibility Checker — Is Your Web3 Project Visible to AI?',
+    title: 'AI Visibility Checker — Is Your Project Visible to AI?',
     description:
       'Check if ChatGPT, Claude, Perplexity and Gemini mention your project. Free LLMO audit in 30 seconds.',
     type: 'website',
@@ -34,7 +34,7 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AI Visibility Checker — Is Your Web3 Project Visible to AI?',
+    title: 'AI Visibility Checker — Is Your Project Visible to AI?',
     description: 'Check if ChatGPT, Claude, Perplexity and Gemini mention your project. Free audit in 30 seconds.',
     images: [OG_IMAGE],
   },

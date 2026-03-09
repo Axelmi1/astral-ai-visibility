@@ -126,7 +126,7 @@ export default function ShareCard({ projectName, score, mentionStrength }) {
   }
 
   async function copyText() {
-    const text = `🔍 I just checked how visible ${projectName} is to AI models (ChatGPT, Claude, Perplexity, Gemini).\n\nAI Visibility Score: ${score}/100 — ${scoreLabel}\n${strengthLabel}\n\nTest your Web3 project → visibility.astral3.io`;
+    const text = `🔍 I just checked how visible ${projectName} is to AI models (ChatGPT, Claude, Perplexity, Gemini).\n\nAI Visibility Score: ${score}/100 — ${scoreLabel}\n${strengthLabel}\n\nTest your project → visibility.astral3.io`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
