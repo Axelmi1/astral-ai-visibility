@@ -510,15 +510,17 @@ Choose findings from this list ONLY for confirmed missing items above, plus addi
       createdAt: new Date().toISOString(),
     };
 
-    // Fire and forget — don't block the response
-    saveReport(reportId, responseData);
-    sendNotification({
-      projectName,
-      url,
-      score: scoring?.visibilityScore ?? 0,
-      mentionStrength: scoring?.mentionStrength ?? 'unknown',
-      reportId,
-    });
+    // Await both — Vercel kills serverless functions after response is sent
+    await Promise.all([
+      saveReport(reportId, responseData),
+      sendNotification({
+        projectName,
+        url,
+        score: scoring?.visibilityScore ?? 0,
+        mentionStrength: scoring?.mentionStrength ?? 'unknown',
+        reportId,
+      }),
+    ]);
 
     return NextResponse.json(responseData);
   } catch (error) {

@@ -328,18 +328,14 @@ function DetailedMetrics({ score, projectName, mentionStrength }) {
 
 export default function ResultsDashboard({ results, onRetry, onReset }) {
   const handleReset = onReset || onRetry;
-  const pageRef    = useRef(null);
-  const ringRef    = useRef(null);
-  const scoreRef   = useRef(null);
+  const pageRef = useRef(null);
 
   const {
-    score, isMentioned, mentionStrength, aiScores,
+    score, mentionStrength, aiScores,
     projectName, category, url, queryUsed,
     competitors, gapSummary, customActions,
   } = results;
 
-  const color  = scoreColor(score);
-  const label  = scoreLabel(score);
   const mentCfg = MENTION[mentionStrength] || MENTION.invisible;
 
   const auditItems = (customActions && customActions.length >= 3)
@@ -349,26 +345,8 @@ export default function ResultsDashboard({ results, onRetry, onReset }) {
   const critCount = auditItems.filter((a) => (a.severity || parseSeverity(a.title)) === 'critical').length;
   const highCount = auditItems.filter((a) => (a.severity || parseSeverity(a.title)) === 'high').length;
 
-  const R    = 70;
-  const CIRC = 2 * Math.PI * R;
-  const targetOff = CIRC - (score / 100) * CIRC;
-
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Main score ring
-      if (ringRef.current) {
-        gsap.set(ringRef.current, { strokeDashoffset: CIRC });
-        gsap.to(ringRef.current, { strokeDashoffset: targetOff, duration: 1.8, ease: 'power2.out', delay: 0.2 });
-      }
-
-      // Score counter
-      if (scoreRef.current) {
-        gsap.to({ val: 0 }, {
-          val: score, duration: 1.8, ease: 'power2.out', delay: 0.2,
-          onUpdate: function() { if (scoreRef.current) scoreRef.current.textContent = Math.round(this.targets()[0].val); },
-        });
-      }
-
       // Mini rings
       document.querySelectorAll('.model-ring').forEach((el) => {
         const c = parseFloat(el.dataset.circ);
@@ -445,86 +423,23 @@ export default function ResultsDashboard({ results, onRetry, onReset }) {
       {/* ── Content ── */}
       <div className="res-content">
 
-        {/* Score + Models row */}
-        <div className="res-score-row" style={{ marginBottom: 20 }}>
-
-          {/* Score card */}
-          <div className="card res-score-card">
-            <p className="section-label" style={{ marginBottom: 20 }}>Overall Score</p>
-
-            <div className="res-score-ring">
-              <svg width="180" height="180" viewBox="0 0 180 180">
-                <circle cx="90" cy="90" r={R} fill="none" stroke="var(--border)" strokeWidth="8" />
-                <circle
-                  ref={ringRef}
-                  cx="90" cy="90" r={R}
-                  fill="none" stroke={color} strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={CIRC}
-                  strokeDashoffset={CIRC}
-                  transform="rotate(-90 90 90)"
-                  style={{ filter: `drop-shadow(0 0 8px ${color}40)` }}
-                />
-                <text
-                  ref={scoreRef}
-                  x="90" y="84"
-                  textAnchor="middle"
-                  style={{ fontSize: 44, fontWeight: 800, fill: '#18181B', fontFamily: 'var(--font-jakarta)' }}
-                >
-                  0
-                </text>
-                <text x="90" y="108" textAnchor="middle" style={{ fontSize: 12, fill: '#A1A1AA', fontFamily: 'var(--font-dm)' }}>
-                  out of 100
-                </text>
-              </svg>
-            </div>
-
-            {/* Badge */}
-            <div
-              className="res-score-badge-wrap"
-              style={{ background: `${color}12`, borderColor: `${color}30` }}
-            >
-              <span className="res-score-badge-text f-head" style={{ color }}>{label}</span>
-            </div>
-
-            <p className="res-score-desc-head f-head" style={{ marginTop: 10 }}>
-              {mentionStrength === 'strong'   ? 'Strong AI presence'    :
-               mentionStrength === 'moderate' ? 'Moderate AI presence'  :
-               mentionStrength === 'weak'     ? 'Limited AI presence'   :
-                                                'Nearly invisible to AI'}
-            </p>
-            <p className="res-score-desc-sub">
-              {mentionStrength === 'strong'
-                ? `${projectName} ranks as a top AI recommendation — focus on locking in that position.`
-                : mentionStrength === 'moderate'
-                ? `${projectName} is recommended but not dominant. Competitors are stealing mindshare.`
-                : mentionStrength === 'weak'
-                ? `${projectName} appears in AI responses but isn't clearly recommended. Visibility gaps exist.`
-                : `${projectName} doesn't appear when users ask AI about ${displayCategory || category}.`}
-            </p>
+        {/* Models card */}
+        <div className="card res-models-card" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <p className="section-label">Score by AI Model</p>
+            <span style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
+              4 AI models tested
+            </span>
           </div>
-
-          {/* Right column: Models + Detailed Metrics stacked */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div className="card res-models-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <p className="section-label">Score by AI Model</p>
-                <span style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic' }}>
-                  4 AI models tested
-                </span>
-              </div>
-              <div className="res-models-grid">
-                {AI_MODELS.map((m) => (
-                  <ModelCard key={m.key} model={m} score={aiScores[m.key] ?? 0} />
-                ))}
-              </div>
-            </div>
-
-            {/* ── Detailed Metrics ── */}
-            <DetailedMetrics score={score} projectName={projectName} mentionStrength={mentionStrength} />
+          <div className="res-models-grid">
+            {AI_MODELS.map((m) => (
+              <ModelCard key={m.key} model={m} score={aiScores[m.key] ?? 0} />
+            ))}
           </div>
-
         </div>
+
+        {/* ── Detailed Metrics ── */}
+        <DetailedMetrics score={score} projectName={projectName} mentionStrength={mentionStrength} />
 
         {/* Query + Mention row */}
         <div className="res-info-row">
