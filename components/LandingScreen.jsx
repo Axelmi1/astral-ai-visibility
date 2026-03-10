@@ -22,11 +22,7 @@ export default function LandingScreen({ fields, setFields, errors, onSubmit }) {
       {/* Nav */}
       <nav className="land-nav anim-up d-0">
         <div className="land-logo">
-          <div className="land-logo-mark">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1L13 4.5V10.5L7 14L1 10.5V4.5L7 1Z" fill="rgba(255,255,255,0.9)" />
-            </svg>
-          </div>
+          <img src="/logos/astral.png" alt="Astral" width={22} height={22} style={{ filter: 'invert(1)', objectFit: 'contain' }} />
           <span className="land-logo-text">Astral</span>
         </div>
         <a

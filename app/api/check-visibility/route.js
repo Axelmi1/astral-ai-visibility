@@ -83,31 +83,121 @@ export async function POST(request) {
 
     // ── STEP 0: Fetch website content for context ──────────────────────────
     let siteContent = '';
+    let metaInfo = '';
     try {
       const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
       const siteResponse = await fetch(normalizedUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0' },
         signal: AbortSignal.timeout(5000),
       });
-      if (siteResponse.ok) {
+      // Read HTML even on non-200 (403 Cloudflare pages still have HTML)
+      {
         const html = await siteResponse.text();
-        siteContent = html
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 2000);
+
+        // Extract meta tags first (always present even in SPAs)
+        const metaTags = [];
+        const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        if (titleMatch) metaTags.push(`Title: ${titleMatch[1].trim()}`);
+        const metaRegex = /<meta[^>]*(?:name|property)=["']([^"']+)["'][^>]*content=["']([^"']+)["'][^>]*/gi;
+        let m;
+        while ((m = metaRegex.exec(html)) !== null) {
+          const key = m[1].toLowerCase();
+          if (['description', 'og:description', 'og:title', 'twitter:description', 'twitter:title', 'keywords'].includes(key)) {
+            metaTags.push(`${m[1]}: ${m[2]}`);
+          }
+        }
+        // Also try reverse attribute order: content before name
+        const metaRegex2 = /<meta[^>]*content=["']([^"']+)["'][^>]*(?:name|property)=["']([^"']+)["'][^>]*/gi;
+        while ((m = metaRegex2.exec(html)) !== null) {
+          const key = m[2].toLowerCase();
+          if (['description', 'og:description', 'og:title', 'twitter:description', 'twitter:title', 'keywords'].includes(key)) {
+            metaTags.push(`${m[2]}: ${m[1]}`);
+          }
+        }
+        metaInfo = metaTags.join('\n');
+
+        // Detect Cloudflare challenge / anti-bot pages (no useful content)
+        const isBlocked = (html.includes('Just a moment') && html.includes('cf_chl'))
+          || html.includes('challenge-platform')
+          || html.includes('Enable JavaScript and cookies to continue');
+
+        if (isBlocked) {
+          metaInfo = ''; // Cloudflare meta tags are useless
+        }
+
+        if (!isBlocked) {
+          siteContent = html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 2000);
+        }
+        // If blocked, siteContent stays empty — Claude will use its own knowledge
       }
     } catch {
       // Site fetch failed — continue without it
     }
 
+    // ── STEP 0b: Fallback — fetch cached version if site is blocked ────────
+    let webContext = '';
+    if (!siteContent && !metaInfo) {
+      const domain = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
+      try {
+        // Step 1: Get exact archive URL via Wayback API (fast)
+        const wbApi = await fetch(
+          `https://archive.org/wayback/available?url=${encodeURIComponent(domain)}`,
+          { signal: AbortSignal.timeout(4000) }
+        ).catch(() => null);
+        let archiveUrl = null;
+        if (wbApi?.ok) {
+          const wb = await wbApi.json();
+          archiveUrl = wb?.archived_snapshots?.closest?.url || null;
+        }
+
+        // Step 2: Fetch the archived page
+        if (archiveUrl) {
+          const archiveRes = await fetch(archiveUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            signal: AbortSignal.timeout(8000),
+          }).catch(() => null);
+          if (archiveRes?.ok) {
+            const archiveHtml = await archiveRes.text();
+            const archiveMeta = [];
+            const titleMatch = archiveHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+            if (titleMatch) {
+              const t = titleMatch[1].replace(/\s+/g, ' ').trim();
+              if (t && !t.includes('Just a moment')) archiveMeta.push(`Title: ${t}`);
+            }
+            // Extract all meta tags — handle both attribute orders
+            const allMetas = archiveHtml.match(/<meta[^>]*>/gi) || [];
+            for (const tag of allMetas) {
+              const nameMatch = tag.match(/(?:name|property)\s*=\s*["']([^"']+)["']/i);
+              const contentMatch = tag.match(/content\s*=\s*["']([^"']+)["']/i);
+              if (nameMatch && contentMatch) {
+                const key = nameMatch[1].toLowerCase();
+                if (['description', 'og:description', 'og:title', 'twitter:description', 'twitter:title'].includes(key)) {
+                  archiveMeta.push(`${nameMatch[1]}: ${contentMatch[1]}`);
+                }
+              }
+            }
+            if (archiveMeta.length > 0) {
+              webContext = `Cached info from web archive:\n${archiveMeta.join('\n')}`.slice(0, 1000);
+            }
+          }
+        }
+      } catch { /* continue without web context */ }
+    }
+
     // ── STEP 1: Identify project name + category + queries ─────────────────
+    const hasContext = siteContent || metaInfo || webContext;
     const identifyResponse = await callClaude(`Given this project/business:
 URL: "${url}"
+${metaInfo ? `\nMeta tags from the website:\n${metaInfo}\n` : ''}
 ${siteContent ? `\nWebsite content (extracted text):\n"${siteContent}"\n` : ''}
-Based on the URL${siteContent ? ' and website content' : ''}, respond in this exact JSON format only, no other text:
+${webContext ? `\nInformation found on the web about this project:\n${webContext}\n` : ''}
+Based on the URL${hasContext ? ' and available context' : ''}, respond in this exact JSON format only, no other text:
 {
   "name": "Project Name",
   "category": "specific category of what they actually do",
@@ -137,6 +227,8 @@ GOOD (hyper-targeted): "What's the best tool for automating customer onboarding 
 
 The "category" must describe what the project ACTUALLY DOES specifically, not a broad sector.
 
+IMPORTANT: If NO website content or meta tags are provided above, the site is likely behind Cloudflare protection or is a SPA. In this case you MUST use YOUR OWN KNOWLEDGE of this project/brand to identify it. Think: "Do I know what ${url} is? What does this company actually do?" Do NOT guess generic categories from the domain name alone — if you know the brand, describe what it ACTUALLY does. If you truly don't know it, say so honestly in the description.
+
 Always return valid JSON, no markdown.`, 400);
 
     if (!identifyResponse.ok) {
@@ -161,7 +253,7 @@ Always return valid JSON, no markdown.`, 400);
       projectName = domain.charAt(0).toUpperCase() + domain.slice(1);
       category = 'Software';
       description = `A project at ${url}`;
-      queries = [`What are the best ${category} projects or platforms in crypto right now?`];
+      queries = [`What are the best ${category} tools or platforms right now?`];
     }
 
     const queryUsed = queries[0];
@@ -183,6 +275,24 @@ Always return valid JSON, no markdown.`, 400);
         techChecks.hasFaqSchema = siteContent.includes('FAQPage') || siteContent.includes('"faq"');
       }
     } catch { /* continue */ }
+
+    // ── STEP 1c: Brand recognition check ───────────────────────────────────
+    let brandRecognition = 'unknown'; // unknown | emerging | established | major
+    try {
+      const brandRes = await callClaude(`Rate the brand recognition of "${projectName}" (${category}, URL: ${url}).
+
+Reply with ONLY one of these exact words, nothing else:
+- "major" = household name or industry leader (e.g. Google, Stripe, Shopify, GitHub, Coinbase, Nike)
+- "established" = well-known in its industry, significant user base (e.g. Notion, Vercel, Kraken, Ahrefs)
+- "emerging" = growing brand, some recognition in niche (e.g. Linear, Cursor, Render)
+- "unknown" = new or very niche, almost no public recognition
+
+Reply with ONE word only.`, 10);
+      if (brandRes?.ok) {
+        const bt = (await brandRes.json()).content?.[0]?.text?.trim().toLowerCase() || '';
+        if (['major', 'established', 'emerging', 'unknown'].includes(bt)) brandRecognition = bt;
+      }
+    } catch { /* continue with unknown */ }
 
     // ── STEP 2: Visibility check ───────────────────────────────────────────
     const visibilityResponse = await callClaude(`You are an AI assistant. A user asks: "${queryUsed}"
@@ -238,6 +348,8 @@ Project name found in response: ${isMentionedRaw}
 Project explicitly recommended: ${isInCompetitorsList}
 Competitors shown instead: ${competitors.slice(0, 6).join(', ') || 'none'}
 ${siteContent ? `Site signals: "${siteContent.slice(0, 300)}"` : ''}
+Brand recognition level: ${brandRecognition}
+Has Wikipedia page: ${techChecks.hasWikipedia}
 
 Reply with ONLY this JSON (no markdown):
 {
@@ -246,18 +358,34 @@ Reply with ONLY this JSON (no markdown):
   "chatgpt": <0-100>,
   "perplexity": <0-100>,
   "gemini": <0-100>,
-  "gapSummary": "<1 sentence: main reason for poor AI visibility>"
+  "gapSummary": "<1 sentence: main reason for poor AI visibility or area to improve>"
 }
 
-Rules for claudeScore:
-- mentioned=true OR recommended=true → score ≥ 35 (likely 40-70)
-- top 3 competitor shown → score 20-40
-- not mentioned at all → score 5-20
-- clearly THE recommended solution → score 70-90
+IMPORTANT — Score based on REAL-WORLD brand recognition, not just this one query:
+
+Step 1: Assess brand recognition independently.
+- Is this a well-known, established company in its industry? (e.g. Kraken, Shopify, HubSpot, Stripe)
+- Does it have significant market presence, press coverage, Wikipedia page, large user base?
+- A major established brand should NEVER score below 40, even if not mentioned in this specific query.
+
+Step 2: Factor in the query result.
+- mentioned=true AND clearly the top recommendation → 75-95
+- mentioned=true OR recommended=true → 50-75
+- NOT mentioned but well-known major brand → 40-60 (the query may just be too narrow)
+- NOT mentioned and mid-tier known brand → 25-45
+- NOT mentioned and unknown/new project → 5-25
+
+Rules for mentionStrength:
+- "strong": mentioned as a top recommendation
+- "moderate": mentioned but not first choice, OR not mentioned but major well-known brand
+- "weak": not mentioned, mid-tier brand with some recognition
+- "invisible": not mentioned and genuinely unknown/new project
 
 Rules for platform estimates (chatgpt/perplexity/gemini):
-Base on brand size: major platform (Salesforce/Notion/Stripe level) → 55-75. Mid-tier known project → 30-55. New early-stage → 8-25.
-Make the 3 platform scores DIFFERENT from each other by ±5-15 points reflecting each platform's training data.`;
+Base on brand size: major established brand → 55-80. Mid-tier known project → 30-55. New early-stage → 8-25.
+Make the 3 platform scores DIFFERENT from each other by ±5-15 points reflecting each platform's training data.
+
+CRITICAL: Do NOT give a score of 5-20 to a company that is clearly well-known in its industry. Use your knowledge of the brand to score fairly.`;
 
     // ── STEP 3b: Personalized audit actions (separate call) ────────────────
     const actionsPrompt = `You are a GEO/LLMO technical auditor. Write 4 audit findings for "${projectName}" (${category}).
@@ -303,11 +431,30 @@ Choose findings from this list ONLY for confirmed missing items above, plus addi
           (j.perplexity ?? 20)  * 0.2 +
           (j.gemini ?? 20)      * 0.2
         );
+        // Apply brand recognition floor — Claude's scores are too conservative for known brands
+        const floors = { major: 55, established: 40, emerging: 25, unknown: 0 };
+        const floor = floors[brandRecognition] ?? 0;
+        const applyFloor = (v) => Math.max(v ?? 0, floor);
+
+        const adjustedClaude = applyFloor(j.claudeScore);
+        const adjustedChatgpt = applyFloor(j.chatgpt);
+        const adjustedPerplexity = applyFloor(j.perplexity);
+        const adjustedGemini = applyFloor(j.gemini);
+
+        const adjustedVisibility = Math.round(
+          adjustedClaude * 0.4 + adjustedChatgpt * 0.2 + adjustedPerplexity * 0.2 + adjustedGemini * 0.2
+        );
+
+        // Fix mentionStrength for known brands
+        let adjustedMention = j.mentionStrength;
+        if (brandRecognition === 'major' && adjustedMention === 'invisible') adjustedMention = 'moderate';
+        if (brandRecognition === 'established' && adjustedMention === 'invisible') adjustedMention = 'weak';
+
         scoring = {
-          visibilityScore,
-          claudeScore: j.claudeScore,
-          mentionStrength: j.mentionStrength,
-          platformEstimates: { chatgpt: j.chatgpt, perplexity: j.perplexity, gemini: j.gemini },
+          visibilityScore: adjustedVisibility,
+          claudeScore: adjustedClaude,
+          mentionStrength: adjustedMention,
+          platformEstimates: { chatgpt: adjustedChatgpt, perplexity: adjustedPerplexity, gemini: adjustedGemini },
           gapSummary: j.gapSummary,
           customActions: null, // filled below
         };
